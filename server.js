@@ -28,7 +28,6 @@ const detailExamRouter = require('./router/admin'); // router quản lý chi ti�
 
 // Sử dụng router
 app.use('/', loginRouter);   // Route đăng nhập (ví dụ: /login)
-app.use('/admin', adminRouter);        // Các route còn lại (admin dashboard,...)
 app.use('/topic', topicRouter);      // Route quản lý chủ đề (ví dụ: /topic)
 app.use('/user', userRouter);        // Route quản lý người dùng (ví dụ: /user)
 app.use('/skill', skillRouter);      // Route quản lý kỹ năng (ví dụ: /skill)

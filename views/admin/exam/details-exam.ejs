@@ -4,7 +4,7 @@
   <div class="bg-white border rounded-4 shadow-sm">
     <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
       <h3 class="fs-4 m-0">Quản lý câu hỏi</h3>
-      <button class="btn btn-success" onclick="window.location.href='/add-question'">Thêm câu hỏi</button>
+      <button id="btnAddQuestion" class="btn btn-success" disabled>Thêm câu hỏi</button>
     </div>
 
     <div class="p-3">
@@ -44,8 +44,8 @@
 
 <script>
   let allQuestions = [];
+  let allTestSets = [];
 
-  // Lấy query param
   function getQueryParam(param) {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get(param);
@@ -59,6 +59,8 @@
       });
       if (!res.ok) throw new Error("Không thể tải danh sách bộ đề");
       const data = await res.json();
+
+      allTestSets = data;
 
       const select = document.getElementById("testSetSelect");
       select.innerHTML = '<option value="">-- Chọn bộ đề --</option>';
@@ -74,7 +76,6 @@
         }
       });
 
-      // Set dropdown theo id trên URL
       const urlTestSetId = getQueryParam('id');
       if (urlTestSetId && [...select.options].some(opt => opt.value === urlTestSetId)) {
         select.value = urlTestSetId;
@@ -107,6 +108,7 @@
     const selectedTestSetId = getQueryParam('id');
     if (!selectedTestSetId) {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center">Vui lòng chọn bộ đề để xem câu hỏi.</td></tr>`;
+      toggleAddButton(false);
       return;
     }
 
@@ -114,47 +116,62 @@
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center">Không có câu hỏi nào trong bộ đề này.</td></tr>`;
-      return;
+    } else {
+      filtered.forEach((q, i) => {
+        const questionText = q.question_text ?? "";
+        const audioURL = q.audio_url ?? "";
+        const options = Array.isArray(q.options) ? q.options : [];
+        const correctAnswer = q.correct_answer ?? "";
+        const explanation = q.explanation ?? "";
+        const questionId = q.question_id ?? "";
+
+        const optionsHTML = options.length
+          ? options.map(opt => `<div>${escapeHTML(opt)}</div>`).join('')
+          : '<i>Không có đáp án</i>';
+
+        const audioHTML = audioURL
+          ? `<audio controls style="max-width: 120px;" src="${escapeHTML(audioURL)}"></audio>`
+          : 'Không có';
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${escapeHTML(questionText)}</td>
+          <td>${audioHTML}</td>
+          <td>${optionsHTML}</td>
+          <td>${escapeHTML(correctAnswer)}</td>
+          <td>${escapeHTML(explanation)}</td>
+          <td class="text-center">
+            <button class="btn btn-primary btn-sm" onclick="goToDetailPage('${escapeJS(questionId)}')">Chi tiết</button>
+          </td>
+          <td class="text-center">
+            <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${escapeJS(questionId)}')">Xoá</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
-    filtered.forEach((q, i) => {
-      const questionText = q.question_text ?? "";
-      const audioURL = q.audio_url ?? "";
-      const options = Array.isArray(q.options) ? q.options : [];
-      const correctAnswer = q.correct_answer ?? "";
-      const explanation = q.explanation ?? "";
-      const questionId = q.question_id ?? "";
+    const currentTestSet = allTestSets.find(ts => String(ts.test_set_id ?? ts.id) === selectedTestSetId);
+    const maxQuestions = currentTestSet ? (currentTestSet.total_questions ?? 0) : 0;
+    const currentCount = filtered.length;
 
-      const optionsHTML = options.length
-        ? options.map(opt => `<div>${escapeHTML(opt)}</div>`).join('')
-        : '<i>Không có đáp án</i>';
+    toggleAddButton(currentCount < maxQuestions);
+  }
 
-      const audioHTML = audioURL
-        ? `<audio controls style="max-width: 120px;" src="${escapeHTML(audioURL)}"></audio>`
-        : 'Không có';
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${escapeHTML(questionText)}</td>
-        <td>${audioHTML}</td>
-        <td>${optionsHTML}</td>
-        <td>${escapeHTML(correctAnswer)}</td>
-        <td>${escapeHTML(explanation)}</td>
-        <td class="text-center">
-          <button class="btn btn-primary btn-sm" onclick="goToDetailPage('${escapeJS(questionId)}')">Chi tiết</button>
-        </td>
-        <td class="text-center">
-          <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${escapeJS(questionId)}')">Xoá</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+  function toggleAddButton(enabled) {
+    const btn = document.getElementById("btnAddQuestion");
+    btn.disabled = !enabled;
+    if (!enabled) {
+      btn.title = "Đã đạt số lượng câu hỏi tối đa của bộ đề này.";
+    } else {
+      btn.title = "";
+    }
   }
 
   function goToDetailPage(id) {
-  window.location.href = `/detail-question?id=${encodeURIComponent(id)}`;
-}
+    window.location.href = `/detail-question?id=${encodeURIComponent(id)}`;
+  }
 
   function deleteQuestion(id) {
     if (!confirm("Bạn có chắc chắn muốn xoá câu hỏi này?")) return;
@@ -198,11 +215,40 @@
     await fetchTestSets();
     renderQuestionTable();
 
-    // Khi thay đổi dropdown → cập nhật URL
+    // Chọn bộ đề thay đổi url và load lại bảng câu hỏi
     document.getElementById("testSetSelect").addEventListener("change", function () {
       const selectedId = this.value;
       const newUrl = selectedId ? `?id=${encodeURIComponent(selectedId)}` : window.location.pathname;
-      window.location.href = newUrl;
+      window.history.replaceState(null, '', newUrl); // chỉ đổi url mà ko reload trang
+
+      renderQuestionTable();
+
+      // Cập nhật link nút thêm câu hỏi
+      updateAddQuestionLink(selectedId);
+    });
+
+    // Set link cho nút Thêm câu hỏi lúc đầu
+    updateAddQuestionLink(getQueryParam('id'));
+
+    // Nút thêm câu hỏi nhảy sang trang /add-question?id=xxx
+    document.getElementById("btnAddQuestion").addEventListener("click", () => {
+      const selectedId = document.getElementById("testSetSelect").value;
+      if (selectedId) {
+        window.location.href = `/add-question?id=${encodeURIComponent(selectedId)}`;
+      } else {
+        alert("Vui lòng chọn bộ đề trước khi thêm câu hỏi.");
+      }
     });
   });
+
+  function updateAddQuestionLink(testSetId) {
+    const btn = document.getElementById("btnAddQuestion");
+    if (testSetId) {
+      btn.disabled = false;
+      btn.title = "";
+    } else {
+      btn.disabled = true;
+      btn.title = "Vui lòng chọn bộ đề trước khi thêm câu hỏi.";
+    }
+  }
 </script>

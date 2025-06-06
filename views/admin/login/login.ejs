@@ -161,7 +161,7 @@
         // Khi backend set cookie 'auth_token', frontend không cần tự lưu token nữa
         showMessage("Đăng nhập thành công! Đang chuyển hướng...");
         setTimeout(() => {
-          window.location.href = "/admin"; // Đường dẫn chuyển sau login
+          window.location.href = "/user"; // Đường dẫn chuyển sau login
         }, 1500);
 
       } catch (error) {

@@ -1,5 +1,20 @@
 <% layout('layouts/index') %>
 
+<style>
+  /* Ẩn mũi tên dropdown trên select disabled */
+  select.no-arrow::-ms-expand {
+    display: none;
+  }
+  select.no-arrow {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none !important;
+    padding-right: 0.5rem;
+    cursor: default;
+  }
+</style>
+
 <main>
   <div class="bg-white border rounded-4 shadow-sm">
     <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
@@ -11,15 +26,15 @@
 
         <div class="col-md-6">
           <label class="form-label">Skill</label>
-          <select class="form-select" name="skill_id" id="skill-select" required>
-            <option value="">-- Chọn skill --</option>
+          <select class="form-select no-arrow" name="skill_id" id="skill-select" disabled required>
+            <!-- 1 option sẽ được gán JS -->
           </select>
         </div>
 
         <div class="col-md-6">
           <label class="form-label">Topic</label>
-          <select class="form-select" name="topic_id" id="topic-select" required disabled>
-            <option value="">-- Chọn topic --</option>
+          <select class="form-select no-arrow" name="topic_id" id="topic-select" disabled required>
+            <!-- 1 option sẽ được gán JS -->
           </select>
         </div>
 
@@ -96,6 +111,7 @@
     const backBtn = document.getElementById('back-button');
 
     let topics = [];
+    let skills = [];
     const params = new URLSearchParams(window.location.search);
     const initialTopicId = params.get('id');
 
@@ -109,47 +125,52 @@
       });
     }
 
-    async function fetchSkills() {
+    async function fetchDataAndInitialize() {
       try {
-        const res = await fetch('http://localhost:8000/api/skills/get-all-skill', { credentials: 'include' });
-        const skills = await res.json();
-        skills.forEach(skill => {
-          const option = document.createElement('option');
-          option.value = skill.skill_id;
-          option.textContent = skill.name;
-          skillSelect.appendChild(option);
-        });
+        const [skillsRes, topicsRes] = await Promise.all([
+          fetch('http://localhost:8000/api/skills/get-all-skill', { credentials: 'include' }),
+          fetch('http://localhost:8000/api/topics/get-all-topics', { credentials: 'include' })
+        ]);
+
+        skills = await skillsRes.json();
+        topics = await topicsRes.json();
+
+        if (!initialTopicId) {
+          alert('Không tìm thấy topic_id trong URL.');
+          return;
+        }
+
+        const topic = topics.find(t => t.topic_id === parseInt(initialTopicId));
+        if (!topic) {
+          alert('Không tìm thấy topic phù hợp với topic_id.');
+          return;
+        }
+
+        // Gán skill select: chỉ 1 option duy nhất và disabled
+        const skill = skills.find(s => s.skill_id === topic.skill_id);
+        skillSelect.innerHTML = '';
+        if (skill) {
+          const skillOption = document.createElement('option');
+          skillOption.value = skill.skill_id;
+          skillOption.textContent = skill.name;
+          skillSelect.appendChild(skillOption);
+          skillSelect.value = skill.skill_id;
+        } else {
+          skillSelect.innerHTML = '<option value="">Không tìm thấy skill</option>';
+        }
+
+        // Gán topic select: chỉ 1 option duy nhất và disabled
+        topicSelect.innerHTML = '';
+        const topicOption = document.createElement('option');
+        topicOption.value = topic.topic_id;
+        topicOption.textContent = topic.name;
+        topicSelect.appendChild(topicOption);
+        topicSelect.value = topic.topic_id;
+
       } catch (err) {
-        console.error('Lỗi lấy danh sách skill:', err);
+        console.error('Lỗi khi lấy dữ liệu:', err);
       }
     }
-
-    async function fetchTopics() {
-      try {
-        const res = await fetch('http://localhost:8000/api/topics/get-all-topics', { credentials: 'include' });
-        topics = await res.json();
-      } catch (err) {
-        console.error('Lỗi lấy danh sách topic:', err);
-      }
-    }
-
-    skillSelect.addEventListener('change', () => {
-      const skillId = parseInt(skillSelect.value);
-      const filtered = topics.filter(t => t.skill_id === skillId);
-      topicSelect.innerHTML = '<option value="">-- Chọn topic --</option>';
-      filtered.forEach(topic => {
-        const option = document.createElement('option');
-        option.value = topic.topic_id;
-        option.textContent = topic.name;
-        topicSelect.appendChild(option);
-      });
-      topicSelect.disabled = filtered.length === 0;
-    });
-
-    (async () => {
-      await fetchSkills();
-      await fetchTopics();
-    })();
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -159,8 +180,8 @@
       formData.forEach((value, key) => data[key] = value.trim());
 
       const payload = {
-        skill_id: parseInt(data.skill_id),
-        topic_id: parseInt(data.topic_id),
+        skill_id: parseInt(skillSelect.value),
+        topic_id: parseInt(topicSelect.value),
         question_text: data.question_text,
         audio_url: data.audio_url || undefined,
         image_url: data.image_url || undefined,
@@ -195,5 +216,7 @@
         alert('Đã xảy ra lỗi khi gọi API.');
       }
     });
+
+    fetchDataAndInitialize();
   });
 </script>

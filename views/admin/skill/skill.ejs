@@ -3,13 +3,13 @@
   <div class="bg-white border rounded-4 shadow-sm">
     <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
       <h4>Quản lý Skill</h4>
-      <button id="showAddSkillModalBtn" class="btn btn-success">Thêm mới</button>
+      <!-- Đã xóa nút Thêm mới -->
     </div>
 
-    <section class ="p-3">
+    <section class="p-3">
       <div class="table-responsive">
         <table class="table table-striped table-hover align-middle small">
-          <thead class="table-light ">
+          <thead class="table-light">
             <tr>
               <th style="width: 5%;">STT</th>
               <th style="width: 30%;">Tên skill</th>
@@ -25,35 +25,6 @@
     </section>
   </div>
 </main>
-
-<!-- Modal Thêm -->
-<div class="modal fade" id="addSkillModal" tabindex="-1" aria-labelledby="addSkillModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <form id="addSkillForm" class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="addSkillModalLabel">Thêm skill</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label for="skillName" class="form-label">Tên skill</label>
-          <input type="text" class="form-control" id="skillName" name="name" required />
-        </div>
-        <div class="mb-3">
-          <label for="skillSlug" class="form-label">Slug</label>
-          <input type="text" class="form-control" id="skillSlug" name="slug" required />
-        </div>
-        <div class="mb-3">
-          <label for="skillDescription" class="form-label">Mô tả</label>
-          <textarea class="form-control" id="skillDescription" name="description" rows="3" required></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="submit" class="btn btn-success">Thêm</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <!-- Modal Sửa -->
 <div class="modal fade" id="editSkillModal" tabindex="-1" aria-labelledby="editSkillModalLabel" aria-hidden="true">
@@ -87,20 +58,13 @@
 
 <script>
   const apiBase = 'http://localhost:8000/api/skills';
-
   let skills = [];
 
   document.addEventListener('DOMContentLoaded', () => {
     fetchSkills();
 
-    document.getElementById('showAddSkillModalBtn').addEventListener('click', () => {
-      new bootstrap.Modal(document.getElementById('addSkillModal')).show();
-    });
-
-    document.getElementById('addSkillForm').addEventListener('submit', e => {
-      e.preventDefault();
-      addSkill();
-    });
+    // Đã xoá sự kiện show modal thêm
+    // Đã xoá sự kiện submit form thêm
 
     document.getElementById('editSkillForm').addEventListener('submit', e => {
       e.preventDefault();
@@ -123,7 +87,7 @@
         return res.json();
       })
       .then(data => {
-        skills = data.skills || data; // tùy API trả về có thuộc tính skills hay không
+        skills = data.skills || data;
         renderTable();
       })
       .catch(err => {
@@ -146,41 +110,6 @@
         <td><button class="btn btn-danger btn-sm" onclick="deleteSkill(${skill.skill_id})">Xóa</button></td>
       `;
       tbody.appendChild(tr);
-    });
-  }
-
-  function addSkill() {
-    const name = document.getElementById('skillName').value.trim();
-    const slug = document.getElementById('skillSlug').value.trim();
-    const description = document.getElementById('skillDescription').value.trim();
-
-    fetch(`${apiBase}/create-skill`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: "include",
-      body: JSON.stringify({ name, slug, description })
-    })
-    .then(async res => {
-      if (res.status === 401) {
-        alert("Phiên đăng nhập đã hết hạn hoặc token không hợp lệ.");
-        window.location.href = "/";
-        throw new Error("Unauthorized");
-      }
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error("Lỗi thêm: " + res.status + " - " + text);
-      }
-      return res.json();
-    })
-    .then(() => {
-      alert("Thêm skill thành công!");
-      bootstrap.Modal.getInstance(document.getElementById('addSkillModal')).hide();
-      document.getElementById('addSkillForm').reset();
-      fetchSkills();
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Thêm skill thất bại: " + err.message);
     });
   }
 

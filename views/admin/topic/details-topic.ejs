@@ -5,7 +5,7 @@
     <!-- Header -->
     <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
       <h4>Danh sách câu hỏi theo Topic</h4>
-      <button class="btn btn-success" onclick="window.location.href='/add-practice'">Thêm mới</button>
+      <button class="btn btn-success" onclick="goToAddPractice()">Thêm mới</button>
     </div>
 
     <!-- Dropdown chọn Topic -->
@@ -44,16 +44,25 @@
 
 <script>
   let practiceList = [];
-
   const topicDropdown = document.getElementById("topicDropdown");
 
-  // Lấy topic_id từ URL (?id=xxx)
+  // ✅ Lấy topic_id từ URL (?id=xxx)
   function getTopicIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
     return params.get('id');
   }
 
-  // Load danh sách chủ đề vào dropdown
+  // ✅ Khi nhấn "Thêm mới", chuyển đến add-practice kèm topic_id
+  function goToAddPractice() {
+    const topicID = getTopicIdFromUrl();
+    if (topicID) {
+      window.location.href = `/add-practice?id=${topicID}`;
+    } else {
+      alert("Vui lòng chọn một chủ đề trước khi thêm câu hỏi.");
+    }
+  }
+
+  // ✅ Load danh sách topic vào dropdown
   function loadTopicDropdown() {
     fetch("http://localhost:8000/api/topics/get-all-topics", {
       method: "GET",
@@ -65,10 +74,7 @@
       topics.forEach(topic => {
         const opt = document.createElement("option");
         opt.value = topic.topic_id;
-        // Chọn 1 trong 2 dòng dưới đây tùy cách hiển thị bạn muốn:
-        // opt.textContent = topic.slug; // chỉ hiển thị slug
         opt.textContent = topic.slug;
-
 
         if (String(topic.topic_id) === String(topicIDFromUrl)) {
           opt.selected = true;
@@ -85,7 +91,7 @@
     });
   }
 
-  // Gọi API lấy tất cả câu hỏi, rồi lọc theo topic_id
+  // ✅ Lấy danh sách câu hỏi và lọc theo topic_id
   function fetchPracticeList() {
     const topicID = getTopicIdFromUrl();
 
@@ -129,11 +135,13 @@
     });
   }
 
+  // ✅ Truncate text
   function truncateText(text, maxLength = 50) {
     if (!text) return '';
     return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
   }
 
+  // ✅ Hiển thị danh sách câu hỏi
   function renderPracticeTable() {
     const tbody = document.getElementById('practiceTableBody');
     tbody.innerHTML = '';
@@ -176,10 +184,12 @@
     });
   }
 
+  // ✅ Chuyển tới trang chi tiết câu hỏi
   function goToDetail(id) {
     window.location.href = `/detail-practice?id=${id}`;
   }
 
+  // ✅ Xóa câu hỏi
   function deletePractice(id) {
     if (!confirm("Bạn có chắc muốn xóa câu hỏi này?")) return;
 
@@ -203,7 +213,7 @@
     });
   }
 
-  // Khởi tạo khi DOM đã sẵn sàng
+  // ✅ Khởi tạo
   document.addEventListener("DOMContentLoaded", () => {
     loadTopicDropdown();
     fetchPracticeList();

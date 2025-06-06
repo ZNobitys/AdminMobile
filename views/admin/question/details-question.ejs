@@ -8,22 +8,26 @@
 
     <form id="edit-question-form" class="p-4">
       <div class="row g-3">
-        <!-- Bộ đề - Part - Số câu -->
-        <div class="col-md-3">
+
+        <!-- Bộ đề (readonly dạng text + hidden input) -->
+        <div class="col-md-4">
           <label class="form-label">Bộ đề</label>
-          <input type="number" class="form-control" name="test_set_id" required readonly>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Part</label>
-          <input type="number" class="form-control" name="part_number" required>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Số câu</label>
-          <input type="number" class="form-control" name="question_number" required>
+          <div id="test-set-display" class="form-control" style="background-color: #e9ecef; cursor: default;" tabindex="-1">Đang tải...</div>
+          <input type="hidden" name="test_set_id" id="input-test-set-id" required>
         </div>
 
+        <!-- Số câu (readonly dạng text + hidden input) -->
+        <div class="col-md-4">
+          <label class="form-label">Số câu</label>
+          <div id="question-number-display" class="form-control" style="background-color: #e9ecef; cursor: default;" tabindex="-1">Đang tải...</div>
+          <input type="hidden" name="question_number" id="input-question-number" required>
+        </div>
+
+        <!-- Ẩn phần Part đi -->
+        <input type="hidden" name="part_number" id="input-part-number" value="0">
+
         <!-- Đáp án đúng -->
-        <div class="col-md-3">
+        <div class="col-md-4">
           <label class="form-label">Đáp án đúng</label>
           <select class="form-select" name="correct_answer" required style="height: 38px;">
             <option value="A">A</option>
@@ -107,8 +111,8 @@
 
     let testSetId = null;
 
-    // Gán sự kiện nút quay lại
-    document.getElementById('back-button').addEventListener('click', function () {
+    // Nút quay lại
+    document.getElementById('back-button').addEventListener('click', () => {
       if (testSetId) {
         window.location.href = `/detail-exam/?id=${encodeURIComponent(testSetId)}`;
       } else {
@@ -141,9 +145,16 @@
 
       testSetId = q.test_set_id;
 
-      document.querySelector('[name="test_set_id"]').value = q.test_set_id || '';
-      document.querySelector('[name="part_number"]').value = q.part_number || '';
-      document.querySelector('[name="question_number"]').value = q.question_number || '';
+      // Hiển thị bộ đề + số câu dạng text, gán hidden input
+      document.getElementById('test-set-display').textContent = q.test_set_id || '';
+      document.getElementById('input-test-set-id').value = q.test_set_id || '';
+
+      document.getElementById('question-number-display').textContent = q.question_number || '';
+      document.getElementById('input-question-number').value = q.question_number || '';
+
+      // Gán part_number cho hidden input
+      document.getElementById('input-part-number').value = q.part_number || 0;
+
       document.querySelector('[name="question_text"]').value = q.question_text || '';
       document.querySelector('[name="audio_url"]').value = q.audio_url || '';
       document.querySelector('audio source').src = q.audio_url || '';
@@ -167,10 +178,10 @@
     });
 
     // Cập nhật dữ liệu
-    document.getElementById('edit-question-form').addEventListener('submit', function (e) {
+    document.getElementById('edit-question-form').addEventListener('submit', e => {
       e.preventDefault();
 
-      const formData = new FormData(this);
+      const formData = new FormData(e.target);
       const data = {
         test_set_id: Number(formData.get('test_set_id')) || null,
         part_number: Number(formData.get('part_number')) || null,

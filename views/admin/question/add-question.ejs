@@ -10,16 +10,16 @@
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Bộ đề</label>
-          <div id="ten-bo-de" class="form-control" style="background-color: #e9ecef; cursor: default;" tabindex="-1"></div>
+          <div id="ten-bo-de" class="form-control" style="background-color: #e9ecef; cursor: default;" tabindex="-1">Đang tải...</div>
           <input type="hidden" name="test_set_id" id="input-test-set-id" required>
         </div>
 
         <input type="hidden" name="part_number" value="1" />
 
         <div class="col-md-3">
-          <label class="form-label">Số câu</label>
-          <input type="number" class="form-control" name="question_number" id="input-so-cau" min="1" required>
-          <div id="so-cau-error" class="form-text text-danger d-none">Số câu phải nhỏ hơn hoặc bằng tổng câu hỏi của bộ đề.</div>
+          <label class="form-label">Câu số</label>
+          <div id="hien-thi-so-cau" class="form-control" style="background-color: #e9ecef; cursor: default;" tabindex="-1">Đang tải...</div>
+          <input type="hidden" name="question_number" id="input-so-cau-thuc" required>
         </div>
 
         <div class="col-md-3">
@@ -89,8 +89,8 @@
     const form = document.getElementById('form-them-cau-hoi');
     const tenBoDeDiv = document.getElementById('ten-bo-de');
     const inputTestSetId = document.getElementById('input-test-set-id');
-    const inputSoCau = document.getElementById('input-so-cau');
-    const soCauError = document.getElementById('so-cau-error');
+    const inputSoCauThuc = document.getElementById('input-so-cau-thuc');
+    const hienThiSoCau = document.getElementById('hien-thi-so-cau');
     const btnQuayLai = document.getElementById('btn-quay-lai');
 
     const params = new URLSearchParams(window.location.search);
@@ -109,8 +109,6 @@
           method: 'GET',
           credentials: 'include'
         });
-
-        if (!res.ok) throw new Error('Không thể tải danh sách bộ đề.');
 
         const dsBoDe = await res.json();
         const boDe = dsBoDe.find(bd => String(bd.test_set_id) === testSetIdFromUrl);
@@ -131,9 +129,6 @@
           return;
         }
 
-        inputSoCau.max = totalQuestions;
-        inputSoCau.placeholder = `Tối đa ${totalQuestions} câu`;
-
         await layCauHoiVaGanSoCau(testSetIdFromUrl);
       } catch (error) {
         console.error('Lỗi khi tải bộ đề:', error);
@@ -149,8 +144,6 @@
           credentials: 'include'
         });
 
-        if (!res.ok) throw new Error('Không thể lấy danh sách câu hỏi.');
-
         const dsCauHoi = await res.json();
         const cauHoiTrongBoDe = dsCauHoi.filter(q => q.test_set_id === Number(test_set_id));
         const soCauDaDung = cauHoiTrongBoDe.map(q => Number(q.question_number)).filter(n => !isNaN(n));
@@ -164,11 +157,11 @@
         }
 
         if (soCanGan !== null) {
-          inputSoCau.value = soCanGan;
+          inputSoCauThuc.value = soCanGan;
+          hienThiSoCau.innerText = soCanGan; // Chỉ hiện số câu thôi, bỏ phần x/y
         } else {
-          inputSoCau.value = '';
-          inputSoCau.placeholder = 'Đã đủ số câu';
-          inputSoCau.disabled = true;
+          inputSoCauThuc.value = '';
+          hienThiSoCau.innerText = 'Đã đủ số câu';
         }
 
       } catch (err) {
@@ -181,15 +174,6 @@
       window.location.href = '/detail-exam';
     });
 
-    inputSoCau.addEventListener('input', () => {
-      const val = Number(inputSoCau.value);
-      if (val > totalQuestions) {
-        soCauError.classList.remove('d-none');
-      } else {
-        soCauError.classList.add('d-none');
-      }
-    });
-
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -197,16 +181,9 @@
       const test_set_id_raw = formData.get('test_set_id');
       const test_set_id = Number(test_set_id_raw);
 
-      if (!test_set_id_raw || isNaN(test_set_id)) {
-        alert('Không tìm thấy bộ đề hợp lệ.');
-        return;
-      }
-
-      const part_number = 1;
       const question_number = Number(formData.get('question_number'));
-
-      if (isNaN(question_number) || question_number < 1 || question_number > totalQuestions) {
-        alert(`Số câu phải từ 1 đến ${totalQuestions}.`);
+      if (!test_set_id || isNaN(question_number)) {
+        alert('Thiếu thông tin bộ đề hoặc số câu.');
         return;
       }
 
@@ -241,7 +218,7 @@
       try {
         const dataGui = {
           test_set_id,
-          part_number,
+          part_number: 1,
           question_number,
           question_text,
           correct_answer,
@@ -262,7 +239,7 @@
 
         if (!res.ok) {
           const errData = await res.json();
-          alert('Lỗi khi tạo câu hỏi: ' + (errData.message || 'Số câu không hợp lệ hoặc đã tồn tại.'));
+          alert('Lỗi khi tạo câu hỏi: ' + (errData.message || 'Lỗi không xác định.'));
           return;
         }
 

@@ -8,25 +8,20 @@
 
     <form id="form-them-cau-hoi" class="p-4">
       <div class="row g-3">
-
-        <!-- Hiển thị tên bộ đề không thể chỉnh sửa -->
         <div class="col-md-6">
           <label class="form-label">Bộ đề</label>
           <div id="ten-bo-de" class="form-control" style="background-color: #e9ecef; cursor: default;" tabindex="-1"></div>
           <input type="hidden" name="test_set_id" id="input-test-set-id" required>
         </div>
 
-        <!-- Part ẩn đi, giá trị luôn 1 -->
         <input type="hidden" name="part_number" value="1" />
 
-        <!-- Số câu -->
         <div class="col-md-3">
           <label class="form-label">Số câu</label>
           <input type="number" class="form-control" name="question_number" id="input-so-cau" min="1" required>
           <div id="so-cau-error" class="form-text text-danger d-none">Số câu phải nhỏ hơn hoặc bằng tổng câu hỏi của bộ đề.</div>
         </div>
 
-        <!-- Đáp án đúng -->
         <div class="col-md-3">
           <label class="form-label">Đáp án đúng</label>
           <select class="form-select" name="correct_answer" required>
@@ -38,13 +33,11 @@
           </select>
         </div>
 
-        <!-- Nội dung câu hỏi -->
         <div class="col-12">
           <label class="form-label">Nội dung câu hỏi</label>
           <textarea class="form-control" name="question_text" rows="3" placeholder="Nhập nội dung câu hỏi..." required></textarea>
         </div>
 
-        <!-- Audio và hình ảnh -->
         <div class="col-md-6">
           <label class="form-label">Đường dẫn Audio (nếu có)</label>
           <input type="text" class="form-control" name="audio_url" placeholder="Nhập URL audio">
@@ -54,7 +47,6 @@
           <input type="text" class="form-control" name="image_url" placeholder="Nhập URL hình ảnh">
         </div>
 
-        <!-- Đáp án -->
         <div class="col-md-6">
           <label class="form-label">Các đáp án</label>
           <div class="input-group mb-2">
@@ -78,13 +70,11 @@
           </div>
         </div>
 
-        <!-- Giải thích -->
         <div class="col-12">
           <label class="form-label">Giải thích (nếu có)</label>
           <textarea class="form-control" name="explanation" rows="2" placeholder="Nhập giải thích"></textarea>
         </div>
 
-        <!-- Nút -->
         <div class="col-12 d-flex justify-content-end gap-2 mt-3">
           <button type="submit" class="btn btn-success">Lưu lại</button>
           <button type="button" class="btn btn-outline-primary" id="btn-quay-lai">Quay lại</button>
@@ -103,18 +93,17 @@
     const soCauError = document.getElementById('so-cau-error');
     const btnQuayLai = document.getElementById('btn-quay-lai');
 
-    // Lấy test_set_id từ URL ?id=...
     const params = new URLSearchParams(window.location.search);
     const testSetIdFromUrl = params.get('id');
-
     let totalQuestions = 0;
 
     async function layBoDe() {
       if (!testSetIdFromUrl) {
-        alert('Không có bộ đề được chọn. Vui lòng chọn bộ đề trước khi thêm câu hỏi.');
+        alert('Không có bộ đề được chọn.');
         window.location.href = '/detail-exam';
         return;
       }
+
       try {
         const res = await fetch('http://localhost:8000/api/tests/test-set/get-all', {
           method: 'GET',
@@ -125,32 +114,66 @@
 
         const dsBoDe = await res.json();
         const boDe = dsBoDe.find(bd => String(bd.test_set_id) === testSetIdFromUrl);
+
         if (!boDe) {
-          alert('Bộ đề không tồn tại hoặc đã bị xoá.');
+          alert('Bộ đề không tồn tại.');
           window.location.href = '/detail-exam';
           return;
         }
 
-        // Hiển thị tên bộ đề
         tenBoDeDiv.innerText = boDe.name || 'Không có tên bộ đề';
         inputTestSetId.value = boDe.test_set_id;
-
-        // Lấy tổng số câu tối đa của bộ đề
         totalQuestions = Number(boDe.total_questions) || 0;
+
         if (totalQuestions <= 0) {
           alert('Bộ đề không có tổng số câu hợp lệ.');
           window.location.href = '/detail-exam';
           return;
         }
 
-        // Đặt max và placeholder cho input số câu
         inputSoCau.max = totalQuestions;
         inputSoCau.placeholder = `Tối đa ${totalQuestions} câu`;
 
+        await layCauHoiVaGanSoCau(testSetIdFromUrl);
       } catch (error) {
         console.error('Lỗi khi tải bộ đề:', error);
-        alert('Có lỗi khi tải bộ đề. Vui lòng thử lại.');
+        alert('Có lỗi khi tải bộ đề.');
         window.location.href = '/detail-exam';
+      }
+    }
+
+    async function layCauHoiVaGanSoCau(test_set_id) {
+      try {
+        const res = await fetch('http://localhost:8000/api/tests/question-test/get-all', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (!res.ok) throw new Error('Không thể lấy danh sách câu hỏi.');
+
+        const dsCauHoi = await res.json();
+        const cauHoiTrongBoDe = dsCauHoi.filter(q => q.test_set_id === Number(test_set_id));
+        const soCauDaDung = cauHoiTrongBoDe.map(q => Number(q.question_number)).filter(n => !isNaN(n));
+
+        let soCanGan = null;
+        for (let i = 1; i <= totalQuestions; i++) {
+          if (!soCauDaDung.includes(i)) {
+            soCanGan = i;
+            break;
+          }
+        }
+
+        if (soCanGan !== null) {
+          inputSoCau.value = soCanGan;
+        } else {
+          inputSoCau.value = '';
+          inputSoCau.placeholder = 'Đã đủ số câu';
+          inputSoCau.disabled = true;
+        }
+
+      } catch (err) {
+        console.error('Lỗi khi lấy câu hỏi:', err);
+        alert('Không thể tự động gán số câu.');
       }
     }
 
@@ -158,7 +181,6 @@
       window.location.href = '/detail-exam';
     });
 
-    // Kiểm tra số câu nhập vào không vượt quá total_questions
     inputSoCau.addEventListener('input', () => {
       const val = Number(inputSoCau.value);
       if (val > totalQuestions) {
@@ -180,11 +202,11 @@
         return;
       }
 
-      const part_number = 1; // luôn bằng 1 theo yêu cầu
+      const part_number = 1;
       const question_number = Number(formData.get('question_number'));
 
       if (isNaN(question_number) || question_number < 1 || question_number > totalQuestions) {
-        alert(`Số câu phải là số nguyên dương và nhỏ hơn hoặc bằng tổng số câu của bộ đề (${totalQuestions}).`);
+        alert(`Số câu phải từ 1 đến ${totalQuestions}.`);
         return;
       }
 
@@ -201,7 +223,6 @@
         formData.get('option_3')?.trim() || '',
       ];
 
-      // Kiểm tra dữ liệu bắt buộc
       if (!correct_answer || !['A','B','C','D'].includes(correct_answer)) {
         alert('Vui lòng chọn đáp án đúng.');
         return;
@@ -213,11 +234,10 @@
       }
 
       if (options.some(opt => !opt)) {
-        alert('Vui lòng nhập đủ các đáp án A, B, C, D.');
+        alert('Vui lòng nhập đầy đủ 4 đáp án.');
         return;
       }
 
-      // Gửi lên API
       try {
         const dataGui = {
           test_set_id,
@@ -242,19 +262,18 @@
 
         if (!res.ok) {
           const errData = await res.json();
-          alert('Lỗi khi tạo câu hỏi: ' + (errData.message || 'Không xác định'));
+          alert('Lỗi khi tạo câu hỏi: ' + (errData.message || 'Số câu không hợp lệ hoặc đã tồn tại.'));
           return;
         }
 
         alert('Thêm câu hỏi thành công!');
-        window.location.href = `/list-question?id=${test_set_id}`;
+        window.location.href = `/detail-exam?id=${test_set_id}`;
       } catch (err) {
-        alert('Lỗi mạng hoặc máy chủ. Vui lòng thử lại.');
         console.error(err);
+        alert('Lỗi khi gửi dữ liệu.');
       }
     });
 
-    // Load bộ đề khi mở trang
     layBoDe();
   });
 </script>

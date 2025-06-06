@@ -1,0 +1,223 @@
+<% layout('layouts/index') %>
+
+<main>
+  <div class="bg-white border rounded-4 shadow-sm">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Chi tiết câu hỏi</h4>
+    </div>
+
+    <form id="edit-question-form" class="p-4">
+      <div class="row g-3">
+        <!-- Bộ đề - Part - Số câu -->
+        <div class="col-md-3">
+          <label class="form-label">Bộ đề</label>
+          <input type="number" class="form-control" name="test_set_id" required readonly>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Part</label>
+          <input type="number" class="form-control" name="part_number" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Số câu</label>
+          <input type="number" class="form-control" name="question_number" required>
+        </div>
+
+        <!-- Đáp án đúng -->
+        <div class="col-md-3">
+          <label class="form-label">Đáp án đúng</label>
+          <select class="form-select" name="correct_answer" required style="height: 38px;">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+
+        <!-- Nội dung câu hỏi -->
+        <div class="col-12">
+          <label class="form-label">Nội dung câu hỏi</label>
+          <textarea class="form-control" name="question_text" rows="3" required></textarea>
+        </div>
+
+        <!-- Audio và hình ảnh -->
+        <div class="col-md-6">
+          <label class="form-label">Audio</label>
+          <input type="text" class="form-control" name="audio_url">
+          <audio class="mt-2 w-100" controls>
+            <source src="" type="audio/mpeg">
+          </audio>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Hình ảnh</label>
+          <input type="text" class="form-control" name="image_url">
+          <div class="mt-2">
+            <img src="" alt="Question Image" class="img-thumbnail w-100" style="max-width: 300px;">
+          </div>
+        </div>
+
+        <!-- Đáp án -->
+        <div class="col-md-6">
+          <label class="form-label">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">A</span>
+            <input type="text" class="form-control" name="option_0" required>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">C</span>
+            <input type="text" class="form-control" name="option_2" required>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" style="visibility: hidden;">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">B</span>
+            <input type="text" class="form-control" name="option_1" required>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">D</span>
+            <input type="text" class="form-control" name="option_3" required>
+          </div>
+        </div>
+
+        <!-- Giải thích -->
+        <div class="col-12">
+          <label class="form-label">Giải thích</label>
+          <textarea class="form-control" name="explanation" rows="2"></textarea>
+        </div>
+
+        <!-- Nút lưu và quay lại -->
+        <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+          <button type="submit" class="btn btn-success">Lưu lại</button>
+          <button type="button" class="btn btn-outline-primary" id="back-button">Quay lại</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const questionId = urlParams.get('id');
+    if (!questionId) {
+      alert("Không tìm thấy ID câu hỏi trên URL.");
+      history.back();
+      return;
+    }
+
+    let testSetId = null;
+
+    // Gán sự kiện nút quay lại
+    document.getElementById('back-button').addEventListener('click', function () {
+      if (testSetId) {
+        window.location.href = `/detail-exam/?id=${encodeURIComponent(testSetId)}`;
+      } else {
+        alert("Không tìm thấy test_set_id để quay lại.");
+      }
+    });
+
+    // Lấy dữ liệu câu hỏi
+    fetch(`http://localhost:8000/api/tests/question-test/get-by-id/${questionId}`, {
+      method: 'GET',
+      credentials: 'include'
+    })
+    .then(async res => {
+      if (res.status === 401) {
+        alert("Phiên đăng nhập đã hết hạn hoặc token không hợp lệ.");
+        window.location.href = "/";
+        throw new Error("Unauthorized");
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error("Lỗi tải câu hỏi: " + res.status + " - " + text);
+      }
+      return res.json();
+    })
+    .then(q => {
+      if (!q) {
+        alert("Không tìm thấy dữ liệu câu hỏi.");
+        return;
+      }
+
+      testSetId = q.test_set_id;
+
+      document.querySelector('[name="test_set_id"]').value = q.test_set_id || '';
+      document.querySelector('[name="part_number"]').value = q.part_number || '';
+      document.querySelector('[name="question_number"]').value = q.question_number || '';
+      document.querySelector('[name="question_text"]').value = q.question_text || '';
+      document.querySelector('[name="audio_url"]').value = q.audio_url || '';
+      document.querySelector('audio source').src = q.audio_url || '';
+      document.querySelector('audio').load();
+      document.querySelector('[name="image_url"]').value = q.image_url || '';
+      document.querySelector('img').src = q.image_url || '';
+
+      if (Array.isArray(q.options)) {
+        document.querySelector('[name="option_0"]').value = q.options[0] || '';
+        document.querySelector('[name="option_1"]').value = q.options[1] || '';
+        document.querySelector('[name="option_2"]').value = q.options[2] || '';
+        document.querySelector('[name="option_3"]').value = q.options[3] || '';
+      }
+
+      document.querySelector('[name="correct_answer"]').value = q.correct_answer || 'A';
+      document.querySelector('[name="explanation"]').value = q.explanation || '';
+    })
+    .catch(error => {
+      console.error('Lỗi khi tải câu hỏi:', error);
+      alert('Không thể tải câu hỏi');
+    });
+
+    // Cập nhật dữ liệu
+    document.getElementById('edit-question-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      const data = {
+        test_set_id: Number(formData.get('test_set_id')) || null,
+        part_number: Number(formData.get('part_number')) || null,
+        question_number: Number(formData.get('question_number')) || null,
+        correct_answer: formData.get('correct_answer'),
+        question_text: formData.get('question_text'),
+        audio_url: formData.get('audio_url'),
+        image_url: formData.get('image_url'),
+        explanation: formData.get('explanation'),
+        options: [
+          formData.get('option_0') || '',
+          formData.get('option_1') || '',
+          formData.get('option_2') || '',
+          formData.get('option_3') || ''
+        ]
+      };
+
+      fetch(`http://localhost:8000/api/tests/question-test/update/${questionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      })
+      .then(async res => {
+        if (res.status === 401) {
+          alert("Phiên đăng nhập đã hết hạn hoặc token không hợp lệ.");
+          window.location.href = "/";
+          throw new Error("Unauthorized");
+        }
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error("Cập nhật thất bại: " + res.status + " - " + text);
+        }
+        return res.json();
+      })
+      .then(result => {
+        if (result.status === 200) {
+          alert('Cập nhật thành công!');
+          window.location.href = `/detail-exam/?id=${encodeURIComponent(testSetId)}`;
+        } else {
+          alert('Cập nhật thất bại!');
+        }
+      })
+      .catch(error => {
+        console.error('Lỗi khi cập nhật:', error);
+        alert('Có lỗi xảy ra khi cập nhật');
+      });
+    });
+  });
+</script>

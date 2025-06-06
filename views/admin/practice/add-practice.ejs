@@ -1,0 +1,199 @@
+<% layout('layouts/index') %>
+
+<main>
+  <div class="bg-white border rounded-4 shadow-sm">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Thêm câu hỏi Practice</h4>
+    </div>
+
+    <form id="add-practice-form" class="p-4">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <label class="form-label">Skill</label>
+          <select class="form-select" name="skill_id" id="skill-select" required>
+            <option value="">-- Chọn skill --</option>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Topic</label>
+          <select class="form-select" name="topic_id" id="topic-select" required disabled>
+            <option value="">-- Chọn topic --</option>
+          </select>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Nội dung câu hỏi</label>
+          <textarea class="form-control" name="question_text" rows="3" required></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Audio URL (nếu có)</label>
+          <input type="text" class="form-control" name="audio_url">
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Image URL (nếu có)</label>
+          <input type="text" class="form-control" name="image_url">
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">A</span>
+            <input type="text" class="form-control" name="option_A" required>
+          </div>
+          <div class="input-group mb-2">
+            <span class="input-group-text">C</span>
+            <input type="text" class="form-control" name="option_C" required>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label" style="visibility: hidden;">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">B</span>
+            <input type="text" class="form-control" name="option_B" required>
+          </div>
+          <div class="input-group mb-2">
+            <span class="input-group-text">D</span>
+            <input type="text" class="form-control" name="option_D" required>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Đáp án đúng</label>
+          <select class="form-select" name="correct_answer" required>
+            <option value="">-- Chọn --</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Giải thích</label>
+          <textarea class="form-control" name="explanation" rows="2"></textarea>
+        </div>
+
+        <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+          <button type="submit" class="btn btn-success">Lưu lại</button>
+          <button type="button" class="btn btn-outline-primary" id="back-button">Quay lại</button>
+        </div>
+
+      </div>
+    </form>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const skillSelect = document.getElementById('skill-select');
+    const topicSelect = document.getElementById('topic-select');
+    const form = document.getElementById('add-practice-form');
+    const backBtn = document.getElementById('back-button');
+
+    let topics = [];
+    const params = new URLSearchParams(window.location.search);
+    const initialTopicId = params.get('id');
+
+    if (initialTopicId) {
+      backBtn.addEventListener('click', () => {
+        window.location.href = `/details-topic?id=${initialTopicId}`;
+      });
+    } else {
+      backBtn.addEventListener('click', () => {
+        window.history.back();
+      });
+    }
+
+    async function fetchSkills() {
+      try {
+        const res = await fetch('http://localhost:8000/api/skills/get-all-skill', { credentials: 'include' });
+        const skills = await res.json();
+        skills.forEach(skill => {
+          const option = document.createElement('option');
+          option.value = skill.skill_id;
+          option.textContent = skill.name;
+          skillSelect.appendChild(option);
+        });
+      } catch (err) {
+        console.error('Lỗi lấy danh sách skill:', err);
+      }
+    }
+
+    async function fetchTopics() {
+      try {
+        const res = await fetch('http://localhost:8000/api/topics/get-all-topics', { credentials: 'include' });
+        topics = await res.json();
+      } catch (err) {
+        console.error('Lỗi lấy danh sách topic:', err);
+      }
+    }
+
+    skillSelect.addEventListener('change', () => {
+      const skillId = parseInt(skillSelect.value);
+      const filtered = topics.filter(t => t.skill_id === skillId);
+      topicSelect.innerHTML = '<option value="">-- Chọn topic --</option>';
+      filtered.forEach(topic => {
+        const option = document.createElement('option');
+        option.value = topic.topic_id;
+        option.textContent = topic.name;
+        topicSelect.appendChild(option);
+      });
+      topicSelect.disabled = filtered.length === 0;
+    });
+
+    (async () => {
+      await fetchSkills();
+      await fetchTopics();
+    })();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(form);
+      const data = {};
+      formData.forEach((value, key) => data[key] = value.trim());
+
+      const payload = {
+        skill_id: parseInt(data.skill_id),
+        topic_id: parseInt(data.topic_id),
+        question_text: data.question_text,
+        audio_url: data.audio_url || undefined,
+        image_url: data.image_url || undefined,
+        options: {
+          A: data.option_A,
+          B: data.option_B,
+          C: data.option_C,
+          D: data.option_D
+        },
+        correct_answer: data.correct_answer,
+        explanation: data.explanation || '',
+        is_active: true
+      };
+
+      try {
+        const res = await fetch('http://localhost:8000/api/practice/question-practice/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        if (res.status === 201 && result.newQuestion) {
+          alert('Tạo câu hỏi thành công!');
+          window.location.href = `/details-topic?id=${payload.topic_id}`;
+        } else {
+          alert('Tạo câu hỏi thất bại!');
+        }
+      } catch (err) {
+        console.error('Lỗi khi tạo câu hỏi:', err);
+        alert('Đã xảy ra lỗi khi gọi API.');
+      }
+    });
+  });
+</script>

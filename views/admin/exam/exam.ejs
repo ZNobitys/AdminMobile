@@ -1,0 +1,214 @@
+<% layout('layouts/index') %>
+<main>
+  <div class="bg-white border rounded-4 shadow-sm">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h3 class="fs-4 m-0">Quản lý đề thi</h3>
+      <button id="showAddExamModalBtn" class="btn btn-success">Thêm mới</button>
+    </div>
+    <section>
+      <div class="table-responsive p-3">
+        <table class="table table-striped table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>STT</th>
+              <th>Tên đề</th>
+              <th>Loại</th>
+              <th>Số câu</th>
+              <th>Thời gian</th>
+              <th>Mô tả</th>
+              <th>Chi tiết</th>
+              <th>Sửa</th>
+              <th>Xóa</th>
+            </tr>
+          </thead>
+          <tbody id="examTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- Modal Thêm -->
+<div class="modal fade" id="addExamModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="addExamForm" class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Thêm đề thi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="name" class="form-control mb-2" placeholder="Tên đề" required />
+        <select name="type" class="form-control mb-2" required>
+          <option value="mini_test">Mini Test</option>
+          <option value="full_test">Full Test</option>
+        </select>
+        <input type="number" name="total_questions" class="form-control mb-2" placeholder="Số câu hỏi" required />
+        <input type="number" name="time_limit" class="form-control mb-2" placeholder="Thời gian (phút)" required />
+        <input type="text" name="description" class="form-control mb-2" placeholder="Mô tả" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success">Thêm</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Sửa -->
+<div class="modal fade" id="editExamModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="editExamForm" class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Sửa đề thi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="test_set_id" />
+        <input type="text" name="name" class="form-control mb-2" placeholder="Tên đề" required />
+        <select name="type" class="form-control mb-2" required>
+          <option value="mini_test">Mini Test</option>
+          <option value="full_test">Full Test</option>
+        </select>
+        <input type="number" name="total_questions" class="form-control mb-2" placeholder="Số câu hỏi" required />
+        <input type="number" name="time_limit" class="form-control mb-2" placeholder="Thời gian (phút)" required />
+        <input type="text" name="description" class="form-control mb-2" placeholder="Mô tả" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary">Lưu thay đổi</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let exams = [];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    fetchExams();
+
+    document.getElementById('showAddExamModalBtn').addEventListener('click', () => {
+      new bootstrap.Modal(document.getElementById('addExamModal')).show();
+    });
+
+    document.getElementById('addExamForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        name: form.name.value.trim(),
+        type: form.type.value,
+        total_questions: parseInt(form.total_questions.value),
+        time_limit: parseInt(form.time_limit.value),
+        description: form.description.value.trim()
+      };
+      try {
+        const res = await fetch('http://localhost:8000/api/tests/test-set/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(data)
+        });
+        if (res.status === 401) return location.href = "/";
+        if (!res.ok) throw new Error(await res.text());
+        await res.json();
+        bootstrap.Modal.getInstance(document.getElementById('addExamModal')).hide();
+        form.reset();
+        fetchExams();
+      } catch (err) {
+        alert("Lỗi thêm đề thi: " + err.message);
+      }
+    });
+
+    document.getElementById('editExamForm').addEventListener('submit', e => {
+      e.preventDefault();
+      updateExam();
+    });
+  });
+
+  async function fetchExams() {
+    try {
+      const res = await fetch('http://localhost:8000/api/tests/test-set/get-all', { credentials: 'include' });
+      if (res.status === 401) return location.href = "/";
+      exams = await res.json();
+      renderTable();
+    } catch (err) {
+      alert("Lỗi tải đề thi: " + err.message);
+    }
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('examTableBody');
+    tbody.innerHTML = '';
+    exams.forEach((exam, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${exam.name}</td>
+        <td>${exam.type}</td>
+        <td>${exam.total_questions}</td>
+        <td>${exam.time_limit}</td>
+        <td>${exam.description || ''}</td>
+        <td><a href="/detail-exam/?id=${exam.test_set_id}" class="btn btn-info btn-sm">Chi tiết</a></td>
+        <td><button class="btn btn-primary btn-sm" onclick="showEditModal(${exam.test_set_id})">Sửa</button></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteExam(${exam.test_set_id})">Xóa</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function showEditModal(id) {
+    const exam = exams.find(e => e.test_set_id === id);
+    if (!exam) return alert("Không tìm thấy đề thi!");
+
+    const form = document.getElementById('editExamForm');
+    form.test_set_id.value = exam.test_set_id;
+    form.name.value = exam.name;
+    form.type.value = exam.type;
+    form.total_questions.value = exam.total_questions;
+    form.time_limit.value = exam.time_limit;
+    form.description.value = exam.description || "";
+
+    new bootstrap.Modal(document.getElementById('editExamModal')).show();
+  }
+
+  async function updateExam() {
+    const form = document.getElementById('editExamForm');
+    const id = form.test_set_id.value;
+    const data = {
+      name: form.name.value.trim(),
+      type: form.type.value,
+      total_questions: parseInt(form.total_questions.value),
+      time_limit: parseInt(form.time_limit.value),
+      description: form.description.value.trim()
+    };
+    try {
+      const res = await fetch(`http://localhost:8000/api/tests/test-set/update/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      });
+      if (res.status === 401) return location.href = "/";
+      if (!res.ok) throw new Error(await res.text());
+      await res.json();
+      bootstrap.Modal.getInstance(document.getElementById('editExamModal')).hide();
+      fetchExams();
+    } catch (err) {
+      alert("Lỗi cập nhật đề thi: " + err.message);
+    }
+  }
+
+  async function deleteExam(id) {
+    if (!confirm("Bạn có chắc muốn xoá đề thi này?")) return;
+    try {
+      const res = await fetch(`http://localhost:8000/api/tests/test-set/delete/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.status === 401) return location.href = "/";
+      if (!res.ok) throw new Error(await res.text());
+      await res.json();
+      fetchExams();
+    } catch (err) {
+      alert("Lỗi xoá đề thi: " + err.message);
+    }
+  }
+</script>

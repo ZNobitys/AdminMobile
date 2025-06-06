@@ -1,0 +1,233 @@
+<% layout('layouts/index') %>
+
+<main>
+  <div class="bg-white border rounded-4 shadow-sm">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Thêm câu hỏi mới</h4>
+    </div>
+
+    <form id="form-them-cau-hoi" class="p-4">
+      <div class="row g-3">
+        <!-- Bộ đề -->
+        <div class="col-md-3">
+          <label for="select-bo-de" class="form-label">Bộ đề</label>
+          <select id="select-bo-de" class="form-select" name="test_set_id" required>
+            <option value="">-- Chọn bộ đề --</option>
+          </select>
+        </div>
+
+        <!-- Part -->
+        <div class="col-md-3">
+          <label class="form-label">Phần (Part)</label>
+          <input type="number" class="form-control" name="part_number" min="1" required>
+        </div>
+
+        <!-- Số câu -->
+        <div class="col-md-3">
+          <label class="form-label">Số câu</label>
+          <input type="number" class="form-control" name="question_number" min="1" required>
+        </div>
+
+        <!-- Đáp án đúng -->
+        <div class="col-md-3">
+          <label class="form-label">Đáp án đúng</label>
+          <select class="form-select" name="correct_answer" required>
+            <option value="">-- Chọn đáp án --</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+
+        <!-- Nội dung câu hỏi -->
+        <div class="col-12">
+          <label class="form-label">Nội dung câu hỏi</label>
+          <textarea class="form-control" name="question_text" rows="3" placeholder="Nhập nội dung câu hỏi..." required></textarea>
+        </div>
+
+        <!-- Audio và hình ảnh -->
+        <div class="col-md-6">
+          <label class="form-label">Đường dẫn Audio (nếu có)</label>
+          <input type="text" class="form-control" name="audio_url" placeholder="Nhập URL audio">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Đường dẫn hình ảnh (nếu có)</label>
+          <input type="text" class="form-control" name="image_url" placeholder="Nhập URL hình ảnh">
+        </div>
+
+        <!-- Đáp án -->
+        <div class="col-md-6">
+          <label class="form-label">Các đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">A</span>
+            <input type="text" class="form-control" name="option_0" placeholder="Đáp án A" required>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">C</span>
+            <input type="text" class="form-control" name="option_2" placeholder="Đáp án C" required>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" style="visibility: hidden;">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">B</span>
+            <input type="text" class="form-control" name="option_1" placeholder="Đáp án B" required>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">D</span>
+            <input type="text" class="form-control" name="option_3" placeholder="Đáp án D" required>
+          </div>
+        </div>
+
+        <!-- Giải thích -->
+        <div class="col-12">
+          <label class="form-label">Giải thích (nếu có)</label>
+          <textarea class="form-control" name="explanation" rows="2" placeholder="Nhập giải thích"></textarea>
+        </div>
+
+        <!-- Nút -->
+        <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+          <button type="submit" class="btn btn-success">Lưu lại</button>
+          <button type="button" class="btn btn-outline-primary" id="btn-quay-lai">Quay lại</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('form-them-cau-hoi');
+    const selectBoDe = document.getElementById('select-bo-de');
+    const btnQuayLai = document.getElementById('btn-quay-lai');
+
+    // Load danh sách bộ đề từ API
+    async function layDanhSachBoDe() {
+      try {
+        const res = await fetch('http://localhost:8000/api/tests/test-set/get-all', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (!res.ok) throw new Error('Không thể tải danh sách bộ đề.');
+
+        const dsBoDe = await res.json();
+
+        dsBoDe.forEach(boDe => {
+          const option = document.createElement('option');
+          option.value = boDe.test_set_id;
+          option.textContent = boDe.name;
+          selectBoDe.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Lỗi khi tải bộ đề:', error);
+        alert('Có lỗi khi tải danh sách bộ đề. Vui lòng thử lại.');
+      }
+    }
+
+    // Nút quay lại chuyển về trang /detail-exam cố định
+    btnQuayLai.addEventListener('click', () => {
+      window.location.href = '/detail-exam';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(form);
+      const test_set_id_raw = formData.get('test_set_id');
+      const test_set_id = Number(test_set_id_raw);
+
+      if (!test_set_id_raw || isNaN(test_set_id)) {
+        alert('Vui lòng chọn bộ đề.');
+        return;
+      }
+
+      const part_number = Number(formData.get('part_number'));
+      const question_number = Number(formData.get('question_number'));
+      const correct_answer = formData.get('correct_answer');
+      const question_text = formData.get('question_text').trim();
+      const audio_url = formData.get('audio_url').trim();
+      const image_url = formData.get('image_url').trim();
+      const explanation = formData.get('explanation').trim();
+
+      const options = [
+        formData.get('option_0')?.trim() || '',
+        formData.get('option_1')?.trim() || '',
+        formData.get('option_2')?.trim() || '',
+        formData.get('option_3')?.trim() || ''
+      ];
+
+      // Kiểm tra dữ liệu hợp lệ
+      if (
+        isNaN(part_number) || part_number < 1 ||
+        isNaN(question_number) || question_number < 1 ||
+        !correct_answer || !question_text ||
+        options.some(opt => opt === "")
+      ) {
+        alert('Vui lòng điền đầy đủ và đúng thông tin.');
+        return;
+      }
+
+      const validAnswers = ['A', 'B', 'C', 'D'];
+      if (!validAnswers.includes(correct_answer.toUpperCase())) {
+        alert('Đáp án đúng phải là A, B, C hoặc D.');
+        return;
+      }
+
+      // Chuẩn hóa correct_answer thành chữ hoa
+      const correctAnswerUpper = correct_answer.toUpperCase();
+
+      const dataGui = {
+        test_set_id,
+        part_number,
+        question_number,
+        question_text,
+        correct_answer: correctAnswerUpper,
+        options,
+        is_active: true
+      };
+
+      if (audio_url) dataGui.audio_url = audio_url;
+      if (image_url) dataGui.image_url = image_url;
+      if (explanation) dataGui.explanation = explanation;
+
+      console.log('Payload gửi lên API:', dataGui);
+
+      try {
+        const res = await fetch('http://localhost:8000/api/tests/question-test/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(dataGui)
+        });
+
+        if (res.status === 401) {
+          alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          window.location.href = '/';
+          return;
+        }
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null);
+          console.error('Lỗi phản hồi API:', errJson || await res.text());
+          alert('Tạo câu hỏi không thành công. Vui lòng kiểm tra dữ liệu.');
+          return;
+        }
+
+        const ketQua = await res.json();
+        console.log('Phản hồi từ API:', ketQua);
+
+        alert('Tạo câu hỏi mới thành công!');
+        // Quay về trang chi tiết bộ đề (không phải id câu hỏi mới)
+        window.location.href = `/detail-exam/?id=${test_set_id}`;
+
+      } catch (error) {
+        console.error('Lỗi khi tạo câu hỏi:', error);
+        alert('Có lỗi xảy ra khi tạo câu hỏi. Vui lòng thử lại sau.');
+      }
+    });
+
+    layDanhSachBoDe();
+  });
+</script>

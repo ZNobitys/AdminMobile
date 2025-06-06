@@ -1,0 +1,211 @@
+<% layout('layouts/index') %>
+
+<main>
+  <div class="bg-white border rounded-4 shadow-sm">
+    <!-- Header -->
+    <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+      <h4>Danh sách câu hỏi theo Topic</h4>
+      <button class="btn btn-success" onclick="window.location.href='/add-practice'">Thêm mới</button>
+    </div>
+
+    <!-- Dropdown chọn Topic -->
+    <div class="d-flex align-items-center gap-2 px-4 mt-3">
+      <label for="topicDropdown" class="form-label mb-0 fw-bold">Chọn chủ đề:</label>
+      <select id="topicDropdown" class="form-select w-auto" style="min-width: 250px;">
+        <option value="">-- Chọn chủ đề --</option>
+      </select>
+    </div>
+
+    <!-- Danh sách câu hỏi -->
+    <section class="p-3">
+      <div id="loadingIndicator" class="text-center my-3" style="display:none;">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+
+      <table class="table table-striped table-hover mt-3 table-light">
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Câu hỏi</th>
+            <th>Đáp án</th>
+            <th>Đáp án đúng</th>
+            <th>Giải thích</th>
+            <th>Chi tiết</th>
+            <th>Xóa</th>
+          </tr>
+        </thead>
+        <tbody id="practiceTableBody"></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<script>
+  let practiceList = [];
+
+  const topicDropdown = document.getElementById("topicDropdown");
+
+  // Lấy topic_id từ URL (?id=xxx)
+  function getTopicIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id');
+  }
+
+  // Load danh sách chủ đề vào dropdown
+  function loadTopicDropdown() {
+    fetch("http://localhost:8000/api/topics/get-all-topics", {
+      method: "GET",
+      credentials: "include"
+    })
+    .then(res => res.json())
+    .then(topics => {
+      const topicIDFromUrl = getTopicIdFromUrl();
+      topics.forEach(topic => {
+        const opt = document.createElement("option");
+        opt.value = topic.topic_id;
+        // Chọn 1 trong 2 dòng dưới đây tùy cách hiển thị bạn muốn:
+        // opt.textContent = topic.slug; // chỉ hiển thị slug
+        opt.textContent = topic.slug;
+
+
+        if (String(topic.topic_id) === String(topicIDFromUrl)) {
+          opt.selected = true;
+        }
+        topicDropdown.appendChild(opt);
+      });
+    });
+
+    topicDropdown.addEventListener("change", () => {
+      const selectedId = topicDropdown.value;
+      if (selectedId) {
+        window.location.href = `/details-topic?id=${selectedId}`;
+      }
+    });
+  }
+
+  // Gọi API lấy tất cả câu hỏi, rồi lọc theo topic_id
+  function fetchPracticeList() {
+    const topicID = getTopicIdFromUrl();
+
+    if (!topicID) {
+      document.getElementById('practiceTableBody').innerHTML = `
+        <tr><td colspan="7" class="text-center text-danger">Không tìm thấy topic_id trên URL</td></tr>
+      `;
+      return;
+    }
+
+    document.getElementById("loadingIndicator").style.display = "block";
+
+    fetch("http://localhost:8000/api/practice/question-practice/get-all", {
+      method: "GET",
+      credentials: "include"
+    })
+    .then(res => {
+      document.getElementById("loadingIndicator").style.display = "none";
+
+      if (res.status === 401) {
+        alert("Phiên đăng nhập đã hết hạn hoặc token không hợp lệ.");
+        window.location.href = "/";
+        return;
+      }
+
+      if (!res.ok) throw new Error("Không thể tải dữ liệu. Mã lỗi: " + res.status);
+      return res.json();
+    })
+    .then(data => {
+      practiceList = Array.isArray(data)
+        ? data.filter(q => q.topic_id != null && String(q.topic_id) === String(topicID))
+        : [];
+
+      renderPracticeTable();
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('practiceTableBody').innerHTML = `
+        <tr><td colspan="7" class="text-center text-danger">Không thể tải dữ liệu</td></tr>
+      `;
+    });
+  }
+
+  function truncateText(text, maxLength = 50) {
+    if (!text) return '';
+    return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+  }
+
+  function renderPracticeTable() {
+    const tbody = document.getElementById('practiceTableBody');
+    tbody.innerHTML = '';
+
+    if (!practiceList.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted fst-italic">Không có câu hỏi nào cho topic này</td></tr>';
+      return;
+    }
+
+    practiceList.forEach((item, index) => {
+      const question = truncateText(item.question_text || '', 50);
+
+      let optionsString = '';
+      if (typeof item.options === 'object' && item.options !== null && !Array.isArray(item.options)) {
+        optionsString = Object.entries(item.options).map(([key, val]) => `${key}: ${val}`).join('; ');
+      } else if (Array.isArray(item.options)) {
+        optionsString = item.options.join('; ');
+      } else {
+        optionsString = item.options || '';
+      }
+
+      const options = truncateText(optionsString, 50);
+      const explanation = truncateText(item.explanation || '', 50);
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${index + 1}</td>
+          <td title="${item.question_text || ''}">${question}</td>
+          <td title="${optionsString}">${options}</td>
+          <td>${item.correct_answer || ''}</td>
+          <td title="${item.explanation || ''}">${explanation}</td>
+          <td class="text-center">
+            <button class="btn btn-info btn-sm" onclick="goToDetail(${item.question_id})">Chi tiết</button>
+          </td>
+          <td class="text-center">
+            <button class="btn btn-danger btn-sm" onclick="deletePractice(${item.question_id})">Xóa</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  function goToDetail(id) {
+    window.location.href = `/detail-practice?id=${id}`;
+  }
+
+  function deletePractice(id) {
+    if (!confirm("Bạn có chắc muốn xóa câu hỏi này?")) return;
+
+    fetch(`http://localhost:8000/api/practice/question-practice/delete/${id}`, {
+      method: "DELETE",
+      credentials: "include"
+    })
+    .then(res => {
+      if (res.status === 401) {
+        alert("Phiên đăng nhập đã hết hạn hoặc token không hợp lệ.");
+        window.location.href = "/";
+        return;
+      }
+
+      if (!res.ok) throw new Error("Xóa thất bại. Mã lỗi: " + res.status);
+      fetchPracticeList(); // Load lại danh sách
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Lỗi khi xóa câu hỏi");
+    });
+  }
+
+  // Khởi tạo khi DOM đã sẵn sàng
+  document.addEventListener("DOMContentLoaded", () => {
+    loadTopicDropdown();
+    fetchPracticeList();
+  });
+</script>

@@ -1,0 +1,244 @@
+<% layout('layouts/index') %>
+
+<main>
+  <div class="bg-white border rounded-4 shadow-sm">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Chi tiết câu hỏi </h4>
+    </div>
+
+    <form id="edit-practice-form" class="p-4">
+      <div class="row g-3">
+        <!-- Skill -->
+        <div class="col-md-6">
+          <label class="form-label">Skill</label>
+          <select class="form-select" name="skill_id" id="skillSelect" required>
+            <option value="">-- Chọn kỹ năng --</option>
+          </select>
+        </div>
+
+        <!-- Topic -->
+        <div class="col-md-6">
+          <label class="form-label">Topic</label>
+          <select class="form-select" name="topic_id" id="topicSelect" required>
+            <option value="">-- Chọn chủ đề --</option>
+          </select>
+        </div>
+
+        <!-- Nội dung câu hỏi -->
+        <div class="col-12">
+          <label class="form-label">Nội dung câu hỏi</label>
+          <textarea class="form-control" name="question_text" rows="3" required></textarea>
+        </div>
+
+        <!-- Audio -->
+        <div class="col-md-6">
+          <label class="form-label">Audio URL</label>
+          <input type="text" class="form-control" name="audio_url">
+          <audio class="mt-2 w-100" controls>
+            <source src="" type="audio/mpeg">
+          </audio>
+        </div>
+
+        <!-- Hình ảnh -->
+        <div class="col-md-6">
+          <label class="form-label">Image URL</label>
+          <input type="text" class="form-control" name="image_url">
+          <div class="mt-2">
+            <img src="" alt="Image preview" class="img-thumbnail w-100" style="max-width: 300px;">
+          </div>
+        </div>
+
+        <!-- Các đáp án -->
+        <div class="col-md-6">
+          <label class="form-label">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">A</span>
+            <input type="text" class="form-control" name="option_A" required>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">C</span>
+            <input type="text" class="form-control" name="option_C" required>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" style="visibility: hidden;">Đáp án</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">B</span>
+            <input type="text" class="form-control" name="option_B" required>
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">D</span>
+            <input type="text" class="form-control" name="option_D" required>
+          </div>
+        </div>
+
+        <!-- Đáp án đúng -->
+        <div class="col-md-4">
+          <label class="form-label">Đáp án đúng</label>
+          <select class="form-select" name="correct_answer" required>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+
+        <!-- Giải thích -->
+        <div class="col-12">
+          <label class="form-label">Giải thích</label>
+          <textarea class="form-control" name="explanation" rows="2"></textarea>
+        </div>
+
+        <!-- Nút hành động -->
+        <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+          <button type="submit" class="btn btn-success">Lưu lại</button>
+          <button type="button" class="btn btn-outline-primary" onclick="window.location.href='/question'">Quay lại</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const questionId = params.get('id');
+    const skillSelect = document.getElementById('skillSelect');
+    const topicSelect = document.getElementById('topicSelect');
+
+    if (!questionId) {
+      alert("Không tìm thấy ID câu hỏi.");
+      history.back();
+      return;
+    }
+
+    let allSkills = [];
+    let allTopics = [];
+
+    // Lấy danh sách skills và topics
+    Promise.all([
+      fetch('http://localhost:8000/api/skills/get-all-skill', { credentials: 'include' }).then(res => res.json()),
+      fetch('http://localhost:8000/api/topics/get-all-topics', { credentials: 'include' }).then(res => res.json())
+    ])
+    .then(([skills, topics]) => {
+      allSkills = skills;
+      allTopics = topics;
+
+      // Hiển thị skill
+      skills.forEach(skill => {
+        const opt = document.createElement('option');
+        opt.value = skill.skill_id;
+        opt.textContent = skill.name;
+        skillSelect.appendChild(opt);
+      });
+
+      // Khi chọn skill, load topic theo skill
+      skillSelect.addEventListener('change', () => {
+        const selectedSkillId = Number(skillSelect.value);
+        const filteredTopics = allTopics.filter(t => t.skill_id === selectedSkillId);
+        topicSelect.innerHTML = '<option value="">-- Chọn chủ đề --</option>';
+        filteredTopics.forEach(topic => {
+          const opt = document.createElement('option');
+          opt.value = topic.topic_id;
+          opt.textContent = topic.name;
+          topicSelect.appendChild(opt);
+        });
+      });
+
+      // Sau khi load dữ liệu skill/topic, load câu hỏi
+      return fetch(`http://localhost:8000/api/practice/question-practice/get-by-id/${questionId}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Lỗi khi tải dữ liệu câu hỏi");
+      return res.json();
+    })
+    .then(q => {
+      document.querySelector('[name="question_text"]').value = q.question_text || '';
+      document.querySelector('[name="audio_url"]').value = q.audio_url || '';
+      document.querySelector('audio source').src = q.audio_url || '';
+      document.querySelector('audio').load();
+      document.querySelector('[name="image_url"]').value = q.image_url || '';
+      document.querySelector('img').src = q.image_url || '';
+      document.querySelector('[name="correct_answer"]').value = q.correct_answer || 'A';
+      document.querySelector('[name="explanation"]').value = q.explanation || '';
+
+      // Xử lý options linh hoạt cho cả 2 kiểu
+      let optionObj = {};
+      if (Array.isArray(q.options)) {
+        // Nếu là mảng chuỗi như ["A: plant", ...]
+        q.options.forEach(opt => {
+          const [key, value] = opt.split(':').map(s => s.trim());
+          optionObj[key] = value;
+        });
+      } else if (typeof q.options === 'object' && q.options !== null) {
+        // Nếu là object như { A: "plant", B: "planted", ... }
+        optionObj = q.options;
+      }
+
+      document.querySelector('[name="option_A"]').value = optionObj.A || '';
+      document.querySelector('[name="option_B"]').value = optionObj.B || '';
+      document.querySelector('[name="option_C"]').value = optionObj.C || '';
+      document.querySelector('[name="option_D"]').value = optionObj.D || '';
+
+      // Set skill và trigger change để load topic tương ứng
+      skillSelect.value = q.skill_id;
+      skillSelect.dispatchEvent(new Event('change'));
+
+      // Delay nhỏ để đợi topic list load xong rồi set topic
+      setTimeout(() => {
+        topicSelect.value = q.topic_id;
+      }, 100);
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Không thể tải dữ liệu câu hỏi.");
+    });
+
+    // Gửi cập nhật
+    document.getElementById('edit-practice-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      const data = {
+        skill_id: Number(formData.get('skill_id')),
+        topic_id: Number(formData.get('topic_id')),
+        question_text: formData.get('question_text'),
+        audio_url: formData.get('audio_url'),
+        image_url: formData.get('image_url'),
+        correct_answer: formData.get('correct_answer'),
+        explanation: formData.get('explanation'),
+        options: {
+          A: formData.get('option_A'),
+          B: formData.get('option_B'),
+          C: formData.get('option_C'),
+          D: formData.get('option_D')
+        }
+      };
+
+      fetch(`http://localhost:8000/api/practice/question-practice/update/${questionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      })
+      .then(async res => {
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error("Lỗi cập nhật: " + res.status + " - " + text);
+        }
+        return res.json();
+      })
+      .then(result => {
+        alert('Cập nhật thành công!');
+        // window.location.href = '/question'; // nếu muốn quay lại danh sách
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Có lỗi xảy ra khi cập nhật câu hỏi.");
+      });
+    });
+  });
+</script>

@@ -1,0 +1,208 @@
+<% layout('layouts/index') %>
+
+<main class="my-4">
+  <div class="bg-white border rounded-4 shadow-sm">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h3 class="fs-4 m-0">Quản lý câu hỏi</h3>
+      <button class="btn btn-success" onclick="window.location.href='/add-question'">Thêm câu hỏi</button>
+    </div>
+
+    <div class="p-3">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="testSetSelect" class="form-label">Chọn bộ đề:</label>
+          <select id="testSetSelect" class="form-select">
+            <option value="">-- Chọn bộ đề --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+          <thead>
+            <tr>
+              <th style="width: 5%;">STT</th>
+              <th style="width: 25%;">Câu hỏi</th>
+              <th style="width: 10%;">Audio</th>
+              <th style="width: 20%;">Các đáp án</th>
+              <th style="width: 5%;">Đúng</th>
+              <th style="width: 20%;">Giải thích</th>
+              <th style="width: 7%;">Chi tiết</th>
+              <th style="width: 8%;">Xoá</th>
+            </tr>
+          </thead>
+          <tbody id="questionTableBody">
+            <tr>
+              <td colspan="8" class="text-center">Vui lòng chọn bộ đề để xem câu hỏi.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let allQuestions = [];
+
+  // Lấy query param
+  function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  }
+
+  async function fetchTestSets() {
+    try {
+      const res = await fetch("http://localhost:8000/api/tests/test-set/get-all", {
+        method: "GET",
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Không thể tải danh sách bộ đề");
+      const data = await res.json();
+
+      const select = document.getElementById("testSetSelect");
+      select.innerHTML = '<option value="">-- Chọn bộ đề --</option>';
+
+      data.forEach(ts => {
+        const value = ts.test_set_id ?? ts.id ?? "";
+        const name = ts.name ?? "Không tên";
+        if (value) {
+          const opt = document.createElement("option");
+          opt.value = String(value);
+          opt.textContent = name;
+          select.appendChild(opt);
+        }
+      });
+
+      // Set dropdown theo id trên URL
+      const urlTestSetId = getQueryParam('id');
+      if (urlTestSetId && [...select.options].some(opt => opt.value === urlTestSetId)) {
+        select.value = urlTestSetId;
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi tải bộ đề: " + err.message);
+    }
+  }
+
+  async function fetchQuestions() {
+    try {
+      const res = await fetch("http://localhost:8000/api/tests/question-test/get-all", {
+        method: "GET",
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Không thể tải câu hỏi");
+      const data = await res.json();
+      allQuestions = Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi tải câu hỏi: " + err.message);
+    }
+  }
+
+  function renderQuestionTable() {
+    const tbody = document.getElementById("questionTableBody");
+    tbody.innerHTML = "";
+
+    const selectedTestSetId = getQueryParam('id');
+    if (!selectedTestSetId) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center">Vui lòng chọn bộ đề để xem câu hỏi.</td></tr>`;
+      return;
+    }
+
+    const filtered = allQuestions.filter(q => String(q.test_set_id) === selectedTestSetId);
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center">Không có câu hỏi nào trong bộ đề này.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach((q, i) => {
+      const questionText = q.question_text ?? "";
+      const audioURL = q.audio_url ?? "";
+      const options = Array.isArray(q.options) ? q.options : [];
+      const correctAnswer = q.correct_answer ?? "";
+      const explanation = q.explanation ?? "";
+      const questionId = q.question_id ?? "";
+
+      const optionsHTML = options.length
+        ? options.map(opt => `<div>${escapeHTML(opt)}</div>`).join('')
+        : '<i>Không có đáp án</i>';
+
+      const audioHTML = audioURL
+        ? `<audio controls style="max-width: 120px;" src="${escapeHTML(audioURL)}"></audio>`
+        : 'Không có';
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHTML(questionText)}</td>
+        <td>${audioHTML}</td>
+        <td>${optionsHTML}</td>
+        <td>${escapeHTML(correctAnswer)}</td>
+        <td>${escapeHTML(explanation)}</td>
+        <td class="text-center">
+          <button class="btn btn-primary btn-sm" onclick="goToDetailPage('${escapeJS(questionId)}')">Chi tiết</button>
+        </td>
+        <td class="text-center">
+          <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${escapeJS(questionId)}')">Xoá</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function goToDetailPage(id) {
+  window.location.href = `/detail-question?id=${encodeURIComponent(id)}`;
+}
+
+  function deleteQuestion(id) {
+    if (!confirm("Bạn có chắc chắn muốn xoá câu hỏi này?")) return;
+
+    fetch(`http://localhost:8000/api/tests/question-test/delete/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include"
+    })
+    .then(async res => {
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Lỗi xoá câu hỏi");
+      }
+      alert("Xoá câu hỏi thành công!");
+      await fetchQuestions();
+      renderQuestionTable();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Lỗi khi xoá câu hỏi: " + err.message);
+    });
+  }
+
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeJS(str) {
+    if (!str) return '';
+    return String(str).replace(/'/g, "\\'");
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    await fetchQuestions();
+    await fetchTestSets();
+    renderQuestionTable();
+
+    // Khi thay đổi dropdown → cập nhật URL
+    document.getElementById("testSetSelect").addEventListener("change", function () {
+      const selectedId = this.value;
+      const newUrl = selectedId ? `?id=${encodeURIComponent(selectedId)}` : window.location.pathname;
+      window.location.href = newUrl;
+    });
+  });
+</script>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng nhập</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  <style>
+    /* CSS giữ nguyên như bạn */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .login-card {
+      background: #fff;
+      padding: 3rem 2.5rem;
+      border-radius: 1.2rem;
+      box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+      width: 380px;
+      max-width: 90vw;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #5a3e9d;
+      font-weight: 600;
+    }
+    .form-control {
+      border-radius: 1rem;
+      padding: 0.75rem 1rem;
+    }
+    .toggle-password {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #6c757d;
+      user-select: none;
+      font-size: 1.2rem;
+      transition: color 0.3s;
+    }
+    .toggle-password:hover {
+      color: #5a3e9d;
+    }
+    .btn-primary {
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border: none;
+      padding: 0.85rem;
+      font-size: 1.1rem;
+      border-radius: 0.9rem;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(90deg, #5a3e9d, #5a3e9d);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <h2>Đăng nhập</h2>
+    <form id="loginForm" autocomplete="off" novalidate>
+      <div class="mb-3 position-relative">
+        <input
+          type="text"
+          class="form-control"
+          id="username"
+          placeholder="Tên đăng nhập"
+          required
+          autocomplete="username"
+        />
+      </div>
+      <div class="mb-3 position-relative">
+        <input
+          type="password"
+          class="form-control"
+          id="password"
+          placeholder="Mật khẩu"
+          required
+          autocomplete="current-password"
+        />
+        <i id="togglePassword" class="bx bx-show toggle-password" title="Hiển thị mật khẩu"></i>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
+    </form>
+  </div>
+
+  <!-- Modal Thông báo -->
+  <div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true" aria-labelledby="messageModalLabel">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body text-center">
+          <p id="messageModalLabel" class="mb-3"></p>
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Bootstrap & Logic -->
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.7/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+  <script>
+    // Toggle hiển thị mật khẩu
+    const togglePasswordIcon = document.getElementById("togglePassword");
+    const passwordInput = document.getElementById("password");
+
+    togglePasswordIcon.addEventListener("click", () => {
+      const isPassword = passwordInput.type === "password";
+      passwordInput.type = isPassword ? "text" : "password";
+      togglePasswordIcon.classList.toggle("bx-show");
+      togglePasswordIcon.classList.toggle("bx-hide");
+      togglePasswordIcon.title = isPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu";
+    });
+
+    // Modal thông báo
+    const messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+    const messageLabel = document.getElementById("messageModalLabel");
+
+    function showMessage(message) {
+      messageLabel.textContent = message;
+      messageModal.show();
+    }
+
+    // Submit form đăng nhập
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById("username").value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!username || !password) {
+        showMessage("Vui lòng nhập đầy đủ thông tin!");
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:8000/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",  // BẮT BUỘC để cookie được set và gửi kèm theo
+          body: JSON.stringify({ username, password }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          showMessage(result.message || "Đăng nhập thất bại!");
+          return;
+        }
+
+        // Khi backend set cookie 'auth_token', frontend không cần tự lưu token nữa
+        showMessage("Đăng nhập thành công! Đang chuyển hướng...");
+        setTimeout(() => {
+          window.location.href = "/admin"; // Đường dẫn chuyển sau login
+        }, 1500);
+
+      } catch (error) {
+        console.error("Lỗi kết nối:", error);
+        showMessage("Không thể kết nối đến máy chủ.");
+      }
+    });
+  </script>
+</body>
+</html>

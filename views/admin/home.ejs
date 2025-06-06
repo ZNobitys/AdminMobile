@@ -1,0 +1,97 @@
+<% layout('layouts/index') %>
+<main>
+  <div class="bg-white border rounded-4 shadow-sm mb-4">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h4 class="fs-4 m-0">Thống kê học viên</h4>
+      <button class="btn btn-info text-light" id="reloadChartBtn">Tải lại</button>
+    </div>
+
+    <section class="p-4">
+      <div class="row">
+        <!-- Biểu đồ cột điểm TOEIC -->
+        <div class="col-md-8 mb-4 mb-md-0">
+          <canvas id="toeicScoreChart" height="200"></canvas>
+        </div>
+
+        <!-- Biểu đồ tròn tiến độ -->
+        <div class="col-md-4 d-flex flex-column align-items-center">
+          <h5 class="mb-3">Tiến độ học tập</h5>
+          <div style="width: 200px;">
+            <canvas id="progressChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  // Biểu đồ TOEIC
+  const toeicCtx = document.getElementById('toeicScoreChart').getContext('2d');
+  const toeicLabels = ['0-99', '100-199', '200-299', '300-399', '400-499', '500-599', '600-699', '700-799', '800-899', '900'];
+
+  let toeicData = {
+    labels: toeicLabels,
+    datasets: [{
+      label: 'Số học viên',
+      data: [10, 25, 40, 65, 80, 95, 85, 60, 30, 10], // Tổng: 500
+      backgroundColor: 'rgba(75, 192, 192, 0.7)',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      borderWidth: 1
+    }]
+  };
+
+  const toeicScoreChart = new Chart(toeicCtx, {
+    type: 'bar',
+    data: toeicData,
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Số học viên'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Mốc điểm TOEIC'
+          }
+        }
+      }
+    }
+  });
+
+  // Tải lại dữ liệu ngẫu nhiên
+  document.getElementById('reloadChartBtn').addEventListener('click', () => {
+    toeicScoreChart.data.datasets[0].data = Array.from({ length: toeicLabels.length }, () => Math.floor(Math.random() * 100));
+    toeicScoreChart.update();
+  });
+
+  // Biểu đồ tiến độ
+  const progressCtx = document.getElementById('progressChart').getContext('2d');
+  const progressChart = new Chart(progressCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Đã học', 'Còn lại'],
+      datasets: [{
+        data: [70, 30],
+        backgroundColor: ['#4caf50', '#e0e0e0'],
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
+      },
+      cutout: '70%'
+    }
+  });
+</script>
